@@ -297,7 +297,7 @@ class HessianQuantCalibrator(QuantCalibrator):
         
         print("hessian calibration finished")
 
-    def batching_quant_calib(self):
+    def batching_quant_calib(self): #! core quant step
         calib_layers=[]
         for name,module in self.wrapped_modules.items():
             calib_layers.append(name)

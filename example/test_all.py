@@ -15,25 +15,27 @@ from utils.quant_calib import HessianQuantCalibrator, QuantCalibrator
 from utils.models import get_net
 import time
 
-def test_all(name, cfg_modifier=lambda x: x, calib_size=32, config_name="PTQ4ViT"):
+def test_all(ckpt_path, name, cfg_modifier=lambda x: x, calib_size=32, config_name="PTQ4ViT"):
     quant_cfg = init_config(config_name)
     quant_cfg = cfg_modifier(quant_cfg)
 
     net = get_net(name)
 
-    wrapped_modules=net_wrap.wrap_modules_in_net(net,quant_cfg)
+    wrapped_modules = net_wrap.wrap_modules_in_net(net, quant_cfg)
     
-    g=datasets.ViTImageNetLoaderGenerator('/datasets/imagenet','imagenet',32,32,16, kwargs={"model":net})
-    test_loader=g.test_loader()
-    calib_loader=g.calib_loader(num=calib_size)
+    g = datasets.ViTImageNetLoaderGenerator('datasets/imagenet','imagenet',32,32,16, kwargs={"model":net})
+    test_loader = g.test_loader()
+    calib_loader = g.calib_loader(num=calib_size)
     
     # add timing
     calib_start_time = time.time()
     quant_calibrator = HessianQuantCalibrator(net,wrapped_modules,calib_loader,sequential=False,batch_size=4) # 16 is too big for ViT-L-16
     quant_calibrator.batching_quant_calib()
     calib_end_time = time.time()
-
-    acc = test_classification(net,test_loader, description=quant_cfg.ptqsl_linear_kwargs["metric"])
+    # TODO: save ckpt of calib models
+    ckpt_full_name = os.path.join(ckpt_path, f'{name}_{config_name}_{str(quant_cfg.bit)}_{calib_size}')
+    torch.save(net, ckpt_full_name)
+    acc = test_classification(net, test_loader, description=quant_cfg.ptqsl_linear_kwargs["metric"])
 
     print(f"model: {name} \n")
     print(f"calibration size: {calib_size} \n")
@@ -81,22 +83,23 @@ if __name__=='__main__':
     args = parse_args()
 
     names = [
-        "vit_tiny_patch16_224",
-        "vit_small_patch32_224",
+        # "vit_tiny_patch16_224",
+        # "vit_small_patch32_224",
         "vit_small_patch16_224",
-        "vit_base_patch16_224",
-        "vit_base_patch16_384",
+        # "vit_base_patch16_224",
+        # "vit_base_patch16_384",
 
-        "deit_tiny_patch16_224",
-        "deit_small_patch16_224",
-        "deit_base_patch16_224",
-        "deit_base_patch16_384",
+        # "deit_tiny_patch16_224",
+        # "deit_small_patch16_224",
+        # "deit_base_patch16_224",
+        # "deit_base_patch16_384",
 
-        "swin_tiny_patch4_window7_224",
-        "swin_small_patch4_window7_224",
-        "swin_base_patch4_window7_224",
-        "swin_base_patch4_window12_384",
+        # "swin_tiny_patch4_window7_224",
+        # "swin_small_patch4_window7_224",
+        # "swin_base_patch4_window7_224",
+        # "swin_base_patch4_window12_384",
         ]
+        
     metrics = ["hessian"]
     linear_ptq_settings = [(1,1,1)] # n_V, n_H, n_a
     calib_sizes = [32,128]
@@ -116,4 +119,4 @@ if __name__=='__main__':
         multiprocess(test_all, cfg_list, n_gpu=args.n_gpu)
     else:
         for cfg in cfg_list:
-            test_all(**cfg)
+            test_all('../checkpoints', **cfg)
