@@ -20,7 +20,7 @@ def test_all_ablation(name, cfg_modifier=lambda x: x, calib_size=32):
 
     net = get_net(name)
 
-    wrapped_modules=net_wrap.wrap_modules_in_net(net,quant_cfg)
+    wrapped_modules=net_wrap.wrap_modules_in_net(net, quant_cfg)
     
     g=datasets.ViTImageNetLoaderGenerator('/datasets/imagenet','imagenet',32,32,16, kwargs={"model":net})
     test_loader=g.test_loader()
