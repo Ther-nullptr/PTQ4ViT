@@ -120,6 +120,11 @@ To test on all models with BasePTQ/PTQ4ViT, run
 python example/test_all.py
 ```
 
+If you want to test a local model with BasePTQ/PTQ4ViT, write the name in `test_all.py`, then run
+```bash
+python example/test_all.py --original_checkpoint_dir <your checkpoint dir> --no_eval --base_name <base name> --name <name>
+```
+
 To run ablation testing, run
 ```bash
 python example/test_ablation.py

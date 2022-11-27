@@ -22,6 +22,10 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--n_gpu", type=int, default=6)
     parser.add_argument("--multiprocess", action='store_true')
+    parser.add_argument("--no_eval", action='store_true')
+    parser.add_argument("--original_checkpoint_dir", type=str, default=None)
+    parser.add_argument("--base_name", type=str, default=None)
+    parser.add_argument("--name", type=str, default=None)
     args = parser.parse_args()
     return args
 
