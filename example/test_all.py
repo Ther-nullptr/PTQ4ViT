@@ -14,8 +14,9 @@ import types
 from utils.quant_calib import HessianQuantCalibrator, QuantCalibrator
 from utils.models import get_net
 import time
+import wandb
 
-def test_all(ckpt_path, name, cfg_modifier=lambda x: x, calib_size=32, config_name="PTQ4ViT"):
+def test_all(ckpt_path, no_eval, name, cfg_modifier=lambda x: x, calib_size=32, config_name="PTQ4ViT"):
     quant_cfg = init_config(config_name)
     quant_cfg = cfg_modifier(quant_cfg)
 
@@ -33,10 +34,15 @@ def test_all(ckpt_path, name, cfg_modifier=lambda x: x, calib_size=32, config_na
     quant_calibrator.batching_quant_calib()
     calib_end_time = time.time()
     # TODO: save ckpt of calib models
-    ckpt_full_name = os.path.join(ckpt_path, f'{name}_{config_name}_{str(quant_cfg.bit)}_{calib_size}')
+    ckpt_full_name = os.path.join(ckpt_path, f'{name}_{config_name}_{str(quant_cfg.bit)}_{calib_size}.pth')
     torch.save(net, ckpt_full_name)
+
+    if no_eval:
+        return
+
     acc = test_classification(net, test_loader, description=quant_cfg.ptqsl_linear_kwargs["metric"])
 
+    wandb.init(project='PTQ4ViT', name=f'{name}_{config_name}_{str(quant_cfg.bit)}_{calib_size}', reinit = True, entity = "ther")
     print(f"model: {name} \n")
     print(f"calibration size: {calib_size} \n")
     print(f"bit settings: {quant_cfg.bit} \n")
@@ -46,6 +52,7 @@ def test_all(ckpt_path, name, cfg_modifier=lambda x: x, calib_size=32, config_na
     print(f"ptqsl_matmul_kwargs: {quant_cfg.ptqsl_matmul_kwargs} \n")
     print(f"calibration time: {(calib_end_time-calib_start_time)/60}min \n")
     print(f"accuracy: {acc} \n\n")
+    wandb.log({'acc':acc, 'time':(calib_end_time-calib_start_time)/60})
 
 class cfg_modifier():
     def __init__(self, **kwargs):
@@ -85,7 +92,7 @@ if __name__=='__main__':
     names = [
         # "vit_tiny_patch16_224",
         # "vit_small_patch32_224",
-        "vit_small_patch16_224",
+        # "vit_small_patch16_224",
         # "vit_base_patch16_224",
         # "vit_base_patch16_384",
 
@@ -94,7 +101,7 @@ if __name__=='__main__':
         # "deit_base_patch16_224",
         # "deit_base_patch16_384",
 
-        # "swin_tiny_patch4_window7_224",
+        "swin_tiny_patch4_window7_224",
         # "swin_small_patch4_window7_224",
         # "swin_base_patch4_window7_224",
         # "swin_base_patch4_window12_384",
@@ -102,9 +109,9 @@ if __name__=='__main__':
         
     metrics = ["hessian"]
     linear_ptq_settings = [(1,1,1)] # n_V, n_H, n_a
-    calib_sizes = [32,128]
+    calib_sizes = [32]
     bit_settings = [(8,8), (6,6)] # weight, activation
-    config_names = ["PTQ4ViT", "BasePTQ"]
+    config_names = ["PTQ4ViT"]
 
     cfg_list = []
     for name, metric, linear_ptq_setting, calib_size, bit_setting, config_name in product(names, metrics, linear_ptq_settings, calib_sizes, bit_settings, config_names):
@@ -119,4 +126,4 @@ if __name__=='__main__':
         multiprocess(test_all, cfg_list, n_gpu=args.n_gpu)
     else:
         for cfg in cfg_list:
-            test_all('../checkpoints', **cfg)
+            test_all('./checkpoints', **cfg)

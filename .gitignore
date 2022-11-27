@@ -21,3 +21,4 @@ int_weights
 
 checkpoints/
 datasets/
+wandb/
