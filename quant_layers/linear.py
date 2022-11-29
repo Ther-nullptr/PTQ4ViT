@@ -59,7 +59,7 @@ class MinMaxQuantLinear(nn.Linear):
         x_sim.mul_(self.a_interval)
         return x_sim
     
-    def quant_forward(self,x):
+    def quant_forward(self, x):
         assert self.calibrated is not None,f"You should run calibrate_forward before run quant_forward for {self}"
         w_sim,bias_sim=self.quant_weight_bias()
         x_sim=self.quant_input(x)

@@ -43,13 +43,13 @@ class MinMaxQuantMatMul(nn.Module):
         assert self.calibrated is not None, f"You should run calibrate_forward before run quant_forward for {self}"
         A_sim = self.quant_input(A, self.A_interval, self.A_qmax)
         B_sim = self.quant_input(B, self.B_interval, self.B_qmax)
-        out = A_sim@B_sim
+        out = A_sim @ B_sim
         return out
 
     def calibration_step1(self, A, B):
         # step1: collection the FP32 values
         self.raw_input = A.cpu().detach(), B.cpu().detach()
-        out = A@B
+        out = A @ B
         self.raw_out = out.cpu().detach()
         return out
 
