@@ -13,6 +13,7 @@ from itertools import product
 import types
 from utils.quant_calib import HessianQuantCalibrator, QuantCalibrator
 from utils.models import get_net
+from utils.avit import *
 import time
 import wandb
 
@@ -21,8 +22,13 @@ def test_all(orig_ckpt_dir, ckpt_path, no_eval, base_name, name, cfg_modifier=la
     quant_cfg = init_config(config_name)
     quant_cfg = cfg_modifier(quant_cfg)
 
+    wandb.init(project='PTQ4ViT',
+               name=f'{name}_{config_name}_{str(quant_cfg.bit)}_{calib_size}', reinit=True, entity="ther")
+
     if orig_ckpt_dir != None:
-        net = get_net(base_name)
+        pseudo_net = get_net(base_name)
+        net = Avit(pseudo_net).cuda()
+        del pseudo_net
         state_dict_path = os.path.join(orig_ckpt_dir, f'{name}.pth')
         state_dict = torch.load(state_dict_path)
         net.load_state_dict(state_dict)
@@ -44,18 +50,16 @@ def test_all(orig_ckpt_dir, ckpt_path, no_eval, base_name, name, cfg_modifier=la
     quant_calibrator.batching_quant_calib()
     calib_end_time = time.time()
     # TODO: save ckpt of calib models
-    ckpt_full_name = os.path.join(
-        ckpt_path, f'{name}_{config_name}_{str(quant_cfg.bit[0])}_{str(quant_cfg.bit[1])}_{calib_size}.pth')
-    torch.save(net.state_dict(), ckpt_full_name)
+    # ckpt_full_name = os.path.join(
+    #     ckpt_path, f'{name}_{config_name}_{str(quant_cfg.bit[0])}_{str(quant_cfg.bit[1])}_{calib_size}.pth')
+    # torch.save(net.state_dict(), ckpt_full_name)
 
     if no_eval:
         return
 
-    acc = test_classification(
+    acc, cnt_token_mean, cnt_token_max, cnt_token_min, avg_cnt_token_diff, expected_depth_ratio = test_classification(
         net, test_loader, description=quant_cfg.ptqsl_linear_kwargs["metric"])
 
-    wandb.init(project='PTQ4ViT',
-               name=f'{name}_{config_name}_{str(quant_cfg.bit)}_{calib_size}', reinit=True, entity="ther")
     print(f"model: {name} \n")
     print(f"calibration size: {calib_size} \n")
     print(f"bit settings: {quant_cfg.bit} \n")
@@ -65,7 +69,8 @@ def test_all(orig_ckpt_dir, ckpt_path, no_eval, base_name, name, cfg_modifier=la
     print(f"ptqsl_matmul_kwargs: {quant_cfg.ptqsl_matmul_kwargs} \n")
     print(f"calibration time: {(calib_end_time-calib_start_time)/60}min \n")
     print(f"accuracy: {acc} \n\n")
-    wandb.log({'acc': acc, 'time': (calib_end_time-calib_start_time)/60})
+
+    wandb.log({'acc': acc, 'time': (calib_end_time-calib_start_time)/60, 'cnt_token_mean': cnt_token_mean, 'cnt_token_max': cnt_token_max, 'cnt_token_min': cnt_token_min, 'avg_cnt_token_diff': avg_cnt_token_diff, 'expected_depth_ratio': expected_depth_ratio})
 
 
 class cfg_modifier():

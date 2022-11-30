@@ -2,6 +2,7 @@ import sys
 
 import torch
 import torch.nn as nn
+import numpy as np
 from tqdm import tqdm
 import argparse
 from importlib import reload, import_module
@@ -16,6 +17,7 @@ from utils import datasets
 from utils import net_wrap
 from utils.quant_calib import QuantCalibrator, HessianQuantCalibrator
 from utils.models import get_net
+from utils.avit import Avit
 
 
 def parse_args():
@@ -30,17 +32,20 @@ def parse_args():
     return args
 
 
-def test_classification(net,
+def test_classification(net: Avit,
                         test_loader,
                         max_iteration=None,
                         description=None):
     pos = 0
     tot = 0
     i = 0
-    max_iteration = len(
-        test_loader) if max_iteration is None else max_iteration
+    max_iteration = len(test_loader) if max_iteration is None else max_iteration
+
     with torch.no_grad():
         q = tqdm(test_loader, desc=description)
+        cnt_token = None
+        cnt_token_diff = None
+
         for inp, target in q:
             i += 1
             inp = inp.cuda()
@@ -50,10 +55,29 @@ def test_classification(net,
             pos += pos_num
             tot += inp.size(0)
             q.set_postfix({"acc": pos / tot})
+
+            if cnt_token is None:
+                cnt_token = net.counter_token.data.cpu().numpy() #! [128, 197]
+            else:
+                cnt_token = np.concatenate((cnt_token, net.counter_token.data.cpu().numpy())) #! [128 * n, 197]
+
+            if cnt_token_diff is None:
+                cnt_token_diff = (torch.max(net.counter_token, dim=-1)[0]-torch.min(net.counter_token, dim=-1)[0]).data.cpu().numpy() #! [128]
+            else:
+                cnt_token_diff = np.concatenate((cnt_token_diff, \
+                (torch.max(net.counter_token, dim=-1)[0]-torch.min(net.counter_token, dim=-1)[0]).data.cpu().numpy())) #! [128 * n]
+
             if i >= max_iteration:
                 break
-    print(pos / tot)
-    return pos / tot
+
+        cnt_token_mean = float(np.mean(cnt_token))
+        cnt_token_max = float(np.max(cnt_token))
+        cnt_token_min = float(np.min(cnt_token))
+        avg_cnt_token_diff = float(np.mean(cnt_token_diff))
+        expected_depth_ratio = float(np.mean(cnt_token/12))
+
+    print(f'acc:{pos / tot} cnt_token_mean:{cnt_token_mean} cnt_token_max:{cnt_token_max} cnt_token_min:{cnt_token_min} avg_cnt_token_diff:{avg_cnt_token_diff} expected_depth_ratio:{expected_depth_ratio}')
+    return pos / tot, cnt_token_mean, cnt_token_max, cnt_token_min, avg_cnt_token_diff, expected_depth_ratio
 
 
 def process(pid, experiment_process, args_queue, n_gpu):
