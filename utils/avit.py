@@ -8,7 +8,7 @@ from timm.models.vision_transformer import VisionTransformer
 import wandb
 
 class Avit(VisionTransformer):
-    def __init__(self, net:VisionTransformer):
+    def __init__(self, net:VisionTransformer, gate_scale = 10, gate_center = 75):
         super(Avit, self).__init__(img_size = net.default_cfg['input_size'][1], patch_size=16, in_chans=net.default_cfg['input_size'][0], num_classes = net.num_classes, embed_dim = net.embed_dim)
         self.num_classes = net.num_classes
         self.num_features = net.num_features
@@ -16,8 +16,10 @@ class Avit(VisionTransformer):
         self.num_heads = self.embed_dim // 64
         self.scale = 64 ** -0.5
 
-        self.gate_scale = 10
-        self.gate_center = 75
+        self.gate_scale = gate_scale
+        self.gate_center = gate_center
+
+        print('Avit: gate_scale = {}, gate_center = {}'.format(gate_scale, gate_center))
 
         num_patches = net.patch_embed.num_patches
 

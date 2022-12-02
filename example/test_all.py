@@ -12,13 +12,13 @@ import pickle as pkl
 from itertools import product
 import types
 from utils.quant_calib import HessianQuantCalibrator, QuantCalibrator
-from utils.models import get_net
+from utils.models import get_net, get_net_existed
 from utils.avit import *
 import time
 import wandb
 
 
-def test_all(orig_ckpt_dir, ckpt_path, no_eval, base_name, name, cfg_modifier=lambda x: x, calib_size=32, config_name="PTQ4ViT"):
+def test_all(orig_ckpt_dir, ckpt_path, no_eval, base_name, scale, center, name, cfg_modifier=lambda x: x, calib_size=32, config_name="PTQ4ViT"):
     quant_cfg = init_config(config_name)
     quant_cfg = cfg_modifier(quant_cfg)
 
@@ -27,7 +27,7 @@ def test_all(orig_ckpt_dir, ckpt_path, no_eval, base_name, name, cfg_modifier=la
 
     if orig_ckpt_dir != None:
         pseudo_net = get_net(base_name)
-        net = Avit(pseudo_net).cuda()
+        net = Avit(pseudo_net, scale, center).cuda()
         del pseudo_net
         state_dict_path = os.path.join(orig_ckpt_dir, f'{name}.pth')
         state_dict = torch.load(state_dict_path)
@@ -36,7 +36,9 @@ def test_all(orig_ckpt_dir, ckpt_path, no_eval, base_name, name, cfg_modifier=la
     else:
         net = get_net(name)
 
+    net = get_net_existed(net)
     wrapped_modules = net_wrap.wrap_modules_in_net(net, quant_cfg)
+    print(net)
 
     g = datasets.ViTImageNetLoaderGenerator(
         'datasets/imagenet', 'imagenet', 32, 32, 16, kwargs={"model": net})
@@ -137,7 +139,7 @@ if __name__ == '__main__':
     metrics = ["hessian"]
     linear_ptq_settings = [(1, 1, 1)]  # n_V, n_H, n_a
     calib_sizes = [32]
-    bit_settings = [(4, 4)]  # weight, activation
+    bit_settings = [(8, 8), (6, 6)]  # weight, activation
     config_names = ["PTQ4ViT", "BasePTQ"]
 
     cfg_list = []
@@ -157,4 +159,4 @@ if __name__ == '__main__':
                 original_checkpoint_dir = args.original_checkpoint_dir
             else:
                 original_checkpoint_dir = None
-            test_all(original_checkpoint_dir, './checkpoints', args.no_eval, args.base_name, **cfg)
+            test_all(original_checkpoint_dir, './checkpoints', args.no_eval, args.base_name, args.gate_scale, args.gate_center, **cfg)

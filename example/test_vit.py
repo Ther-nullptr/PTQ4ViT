@@ -28,6 +28,8 @@ def parse_args():
     parser.add_argument("--original_checkpoint_dir", type=str, default=None)
     parser.add_argument("--base_name", type=str, default=None)
     parser.add_argument("--name", type=str, default=None)
+    parser.add_argument("--gate_scale", type=float, default=10.)
+    parser.add_argument("--gate_center", type=float, default=75.)
     args = parser.parse_args()
     return args
 

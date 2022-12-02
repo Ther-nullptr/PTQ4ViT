@@ -89,3 +89,18 @@ def get_net(name):
     net.cuda()
     net.eval()
     return net
+
+
+def get_net_existed(net):
+    for name, module in net.named_modules():
+        if isinstance(module, Attention):
+            setattr(module, "matmul1", MatMul())
+            setattr(module, "matmul2", MatMul())
+            module.forward = MethodType(attention_forward, module)
+        if isinstance(module, WindowAttention):
+            setattr(module, "matmul1", MatMul())
+            setattr(module, "matmul2", MatMul())
+            module.forward = MethodType(window_attention_forward, module)
+    net.cuda()
+    net.eval()
+    return net
