@@ -137,7 +137,7 @@ if __name__ == '__main__':
     metrics = ["hessian"]
     linear_ptq_settings = [(1, 1, 1)]  # n_V, n_H, n_a
     calib_sizes = [32]
-    bit_settings = [(8, 8), (6, 6)]  # weight, activation
+    bit_settings = [(4, 4)]  # weight, activation
     config_names = ["PTQ4ViT", "BasePTQ"]
 
     cfg_list = []

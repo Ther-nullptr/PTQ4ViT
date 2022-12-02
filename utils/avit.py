@@ -44,7 +44,7 @@ class Avit(VisionTransformer):
         B, N, C = x.shape
         qkv = net.qkv(x).reshape(B, N, 3, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4) #! qkv: [3, 10, 3, 197, 64]
         q, k, v = qkv[0], qkv[1], qkv[2]   # make torchscript happy (cannot use tensor as tuple) #! [10, 3, 197, 64]
-        attn = (q @ k.transpose(-2, -1)) * self.scale #! [10, 3, 197, 197] 3:heads
+        attn = net.matmul1(q, k.transpose(-2, -1)) * self.scale #! [10, 3, 197, 197] 3:heads
 
         if mask is not None:
             # now we need to mask out all the attentions associated with this token
@@ -55,7 +55,7 @@ class Avit(VisionTransformer):
         attn = attn.softmax(dim=-1) #! [10, 3, 197, 197]
         attn = net.attn_drop(attn)
 
-        x = (attn @ v).transpose(1, 2).reshape(B, N, C) #! [10, 197, 192]
+        x = net.matmul2(attn, v).transpose(1, 2).reshape(B, N, C) #! [10, 197, 192]
         x = net.proj(x)
         x = net.proj_drop(x)
 
@@ -72,7 +72,7 @@ class Avit(VisionTransformer):
             x = x + self.forward_mask_attn(net.attn, net.norm1(x*(1-mask).view(bs, token, 1))*(1-mask).view(bs, token, 1), mask=mask) #! every step need to load the mask!!
             x = x + net.mlp(net.norm2(x*(1-mask).view(bs, token, 1))*(1-mask).view(bs, token, 1))
 
-        halting_score_token = torch.nn.functional.sigmoid(self.gate_scale * x[:,:,0] - self.gate_center)
+        halting_score_token = torch.sigmoid(self.gate_scale * x[:,:,0] - self.gate_center)
         halting_score = [-1, halting_score_token]
 
         return x, halting_score
